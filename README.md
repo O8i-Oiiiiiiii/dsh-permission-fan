@@ -2,6 +2,8 @@
 
 把 DeepSeek Harness 输入框左下角的权限切换，从「点开下拉菜单 → 找到那一项 → 再点一下」变成**一次手势**：按住圆钮、向上拖出扇形、松手即生效。
 
+🎬 **视频讲解**：[B站 · BV1ApW16bEwX](https://www.bilibili.com/video/BV1ApW16bEwX)
+
 <p align="center">
   <img src="preview/shots/02-open.png" width="720" alt="按住圆钮弹出三区扇形">
 </p>
