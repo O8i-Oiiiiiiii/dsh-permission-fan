@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>权限扇形选择器 · 效果预览</title>
+<style>
+  :root{
+    --bg:#151B35;
+    --card:#1C2440;
+    --card-2:#1F2848;
+    --line:#2C3757;
+    --txt:#E8ECF7;
+    --txt-2:#8796B7;
+    --txt-3:#5C6A8C;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:radial-gradient(1200px 600px at 50% -10%, #232F5E 0%, #151B35 62%);
+    color:var(--txt);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC",system-ui,-apple-system,sans-serif;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased;
+  }
+  .stage{position:relative;width:640px}
+
+  .composer{
+    background:linear-gradient(180deg,#1F2848 0%, #1B2340 100%);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 14px 10px;
+    min-height:150px;
+    display:flex;flex-direction:column;
+    box-shadow:0 18px 50px -20px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.04);
+    transition:filter .15s;
+  }
+  .prompt{font-size:14px;line-height:22px;color:var(--txt-3);padding:2px 2px 10px}
+  .toolrow{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:6px}
+  .icon-btn{
+    width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;
+    background:none;border:none;border-radius:8px;color:var(--txt-2);cursor:pointer;transition:background .14s;
+  }
+  .icon-btn:hover{background:rgba(255,255,255,.06)}
+  .icon-btn svg{width:16px;height:16px}
+  .spacer{flex:1}
+  .send-btn{
+    width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;
+    background:#2C3A5E;color:#8FA3CB;display:inline-flex;align-items:center;justify-content:center;
+  }
+  .send-btn svg{width:15px;height:15px}
+
+  .perm-btn{
+    width:30px;height:30px;border-radius:50%;
+    border:1.5px solid var(--perm-color);
+    background:color-mix(in srgb, var(--perm-color) 18%, transparent);
+    color:var(--perm-color);
+    display:inline-flex;align-items:center;justify-content:center;
+    cursor:pointer;outline:none;
+    transition:transform .12s, box-shadow .16s, background .16s;
+    position:relative;z-index:2;
+  }
+  .perm-btn svg{width:16px;height:16px}
+  .perm-btn:hover{box-shadow:0 0 0 4px color-mix(in srgb, var(--perm-color) 12%, transparent)}
+  body.is-open .perm-btn{
+    transform:scale(1.05);
+    background:color-mix(in srgb, var(--perm-color) 30%, transparent);
+    box-shadow:0 0 0 5px color-mix(in srgb, var(--perm-color) 16%, transparent),
+               0 0 24px color-mix(in srgb, var(--perm-color) 45%, transparent);
+  }
+
+  /* 扇形浮层 */
+  #fanLayer{
+    position:fixed;width:300px;height:300px;pointer-events:none;
+    opacity:0;transform:scale(.94);
+    transition:opacity .13s ease-out, transform .15s cubic-bezier(.2,.9,.3,1.2);
+    z-index:10;
+  }
+  body.is-open #fanLayer{opacity:1;transform:scale(1)}
+  #fanLayer > svg{display:block;width:100%;height:100%;overflow:visible}
+
+  .sector{transition:fill .1s}
+  .label{
+    position:absolute;transform:translate(-50%,-50%);
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    color:var(--c);pointer-events:none;
+    transition:color .1s, transform .1s;
+  }
+  .label svg{width:22px;height:22px;flex:none;display:block}
+  .label span{
+    font-size:9px;font-weight:500;letter-spacing:.2px;
+    color:rgba(208,219,243,.88);white-space:nowrap;
+    transition:color .1s, font-weight .1s;
+  }
+  .label.active{transform:translate(-50%,-50%) scale(1.05);color:#fff}
+  .label.active span{color:#fff;font-weight:700}
+
+  .scrim{
+    position:fixed;inset:0;background:rgba(9,12,26,.46);
+    opacity:0;pointer-events:none;transition:opacity .13s;z-index:5;
+  }
+  body.is-open .scrim{opacity:1}
+
+  .caption{
+    text-align:center;margin-top:22px;font-size:12px;color:var(--txt-3);letter-spacing:.4px;
+  }
+</style>
+</head>
+<body>
+  <div class="scrim"></div>
+
+  <div class="stage">
+    <div class="composer">
+      <div class="prompt">输入消息…（这里模拟 DSH 输入框）</div>
+      <div class="toolrow">
+        <button class="icon-btn" title="添加附件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button class="perm-btn" id="permBtn" aria-label="访问模式"><span id="permIcon"></span></button>
+        <button class="icon-btn" title="斜杠命令">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M15 4l-6 16"/></svg>
+        </button>
+        <div class="spacer"></div>
+        <button class="send-btn" title="发送">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="fanLayer"><svg id="fanSvg" viewBox="0 0 300 300"></svg></div>
+    <div class="caption">按住圆形按钮 · 拖到某一区 · 松手生效</div>
+  </div>
+
+<script>
+(function(){
+  var CX = 150, CY = 232;
+  var R0 = 17, R1 = 96, SPAN = 150, START = -165;
+  var R_ITEM = 65;
+
+  var PRESETS = [
+    { id:'read-only',          short:'仅查看',  label:'仅可查看',     color:'#6D9BF5', rgb:'109,155,245', icon:'eye'  },
+    { id:'workspace-write',    short:'工作区',  label:'工作区内修改', color:'#E3B04B', rgb:'227,176,75',  icon:'pen'  },
+    { id:'danger-full-access', short:'完全权限', label:'完全权限',     color:'#E5665F', rgb:'229,102,95',  icon:'bang' }
+  ];
+
+  var SHIELD = 'M12 3l7 3v6c0 4-3 7.2-7 9-4-1.8-7-5-7-9V6z';
+  var ICONS = {
+    eye : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="'+SHIELD+'"/><circle cx="12" cy="11.4" r="2.3"/></svg>',
+    pen : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="'+SHIELD+'"/><path d="M9.2 12l1.9 1.9 3.7-3.8"/></svg>',
+    bang: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="'+SHIELD+'"/><path d="M12 8.4v3.6"/><circle cx="12" cy="15.1" r=".95" fill="currentColor" stroke="none"/></svg>'
+  };
+
+  var state = { current:'workspace-write', open:false, hover:-1 };
+
+  var body     = document.body;
+  var btn      = document.getElementById('permBtn');
+  var iconSlot = document.getElementById('permIcon');
+  var layer    = document.getElementById('fanLayer');
+  var svg      = document.getElementById('fanSvg');
+
+  function presetOf(id){ for(var i=0;i<PRESETS.length;i++){ if(PRESETS[i].id===id) return PRESETS[i]; } return PRESETS[1]; }
+  function deg2rad(d){ return d*Math.PI/180; }
+  function pt(r,a){ return [CX + r*Math.cos(deg2rad(a)), CY + r*Math.sin(deg2rad(a))]; }
+  function f2(n){ return n.toFixed(2); }
+
+  function sectorPath(a1,a2){
+    var p1=pt(R1,a1), p2=pt(R1,a2), p3=pt(R0,a2), p4=pt(R0,a1);
+    return 'M'+f2(p1[0])+' '+f2(p1[1])+' A'+R1+' '+R1+' 0 0 1 '+f2(p2[0])+' '+f2(p2[1])+
+           ' L'+f2(p3[0])+' '+f2(p3[1])+' A'+R0+' '+R0+' 0 0 0 '+f2(p4[0])+' '+f2(p4[1])+' Z';
+  }
+
+  var STEP = SPAN / PRESETS.length;
+  var EDGES = [];
+  for(var e=0;e<=PRESETS.length;e++) EDGES.push(START + e*STEP);
+
+  function buildFan(){
+    var html = '';
+    // 扇区
+    for(var i=0;i<PRESETS.length;i++){
+      html += '<path class="sector" data-i="'+i+'" d="'+sectorPath(EDGES[i],EDGES[i+1])+'" fill="rgba('+PRESETS[i].rgb+',0.15)"></path>';
+    }
+    // 分区线
+    var dl = 'rgba(198,214,248,0.30)';
+    for(var k=0;k<EDGES.length;k++){
+      var a1 = pt(R0,EDGES[k]), a2 = pt(R1,EDGES[k]);
+      html += '<line x1="'+f2(a1[0])+'" y1="'+f2(a1[1])+'" x2="'+f2(a2[0])+'" y2="'+f2(a2[1])+'" stroke="'+dl+'" stroke-width="1"></line>';
+    }
+    // 外弧 / 内弧
+    var o1 = pt(R1,START), o2 = pt(R1,START+SPAN);
+    html += '<path d="M'+f2(o1[0])+' '+f2(o1[1])+' A'+R1+' '+R1+' 0 0 1 '+f2(o2[0])+' '+f2(o2[1])+'" fill="none" stroke="'+dl+'" stroke-width="1"></path>';
+    var i1 = pt(R0,START), i2 = pt(R0,START+SPAN);
+    html += '<path d="M'+f2(i1[0])+' '+f2(i1[1])+' A'+R0+' '+R0+' 0 0 1 '+f2(i2[0])+' '+f2(i2[1])+'" fill="none" stroke="'+dl+'" stroke-width="1"></path>';
+    // 高亮描边
+    for(var h=0;h<PRESETS.length;h++){
+      html += '<path class="hi" data-i="'+h+'" d="'+sectorPath(EDGES[h],EDGES[h+1])+'" fill="none" stroke="'+PRESETS[h].color+'" stroke-width="1.8" opacity="0"></path>';
+    }
+    svg.innerHTML = html;
+
+    // 标签（图标 + 小字）
+    var old = layer.querySelectorAll('.label');
+    for(var n=0;n<old.length;n++) old[n].remove();
+    for(var j=0;j<PRESETS.length;j++){
+      var p = PRESETS[j];
+      var mid = START + (j+0.5)*STEP;
+      var q = pt(R_ITEM, mid);
+      var el = document.createElement('div');
+      el.className = 'label';
+      el.dataset.i = j;
+      el.style.setProperty('--c', p.color);
+      el.style.left = q[0] + 'px';
+      el.style.top  = q[1] + 'px';
+      el.innerHTML = ICONS[p.icon] + '<span>' + p.short + '</span>';
+      layer.appendChild(el);
+    }
+  }
+
+  function place(){
+    var r = btn.getBoundingClientRect();
+    layer.style.left = (r.left + r.width/2 - CX) + 'px';
+    layer.style.top  = (r.top  + r.height/2 - CY) + 'px';
+  }
+
+  function paintButton(){
+    var p = presetOf(state.current);
+    btn.style.setProperty('--perm-color', p.color);
+    iconSlot.innerHTML = ICONS[p.icon];
+    btn.setAttribute('aria-label', '访问模式，当前：' + p.label);
+  }
+
+  function paintHover(){
+    var sectors = svg.querySelectorAll('.sector');
+    var hits    = svg.querySelectorAll('.hi');
+    var labels  = layer.querySelectorAll('.label');
+    for(var i=0;i<sectors.length;i++){
+      var idx = parseInt(sectors[i].dataset.i,10);
+      var on  = idx === state.hover;
+      sectors[i].setAttribute('fill', 'rgba('+PRESETS[idx].rgb+','+(on?0.60:0.15)+')');
+    }
+    for(var k=0;k<hits.length;k++){
+      hits[k].setAttribute('opacity', parseInt(hits[k].dataset.i,10) === state.hover ? '1' : '0');
+    }
+    for(var j=0;j<labels.length;j++){
+      labels[j].classList.toggle('active', parseInt(labels[j].dataset.i,10) === state.hover);
+    }
+  }
+
+  function open(){
+    if(state.open) return;
+    state.open = true; state.hover = -1;
+    body.classList.add('is-open');
+    paintHover();
+  }
+  function close(){
+    if(!state.open) return;
+    state.open = false; state.hover = -1;
+    body.classList.remove('is-open');
+    paintHover();
+  }
+
+  function hit(x,y){
+    var r = btn.getBoundingClientRect();
+    var cx = r.left + r.width/2, cy = r.top + r.height/2;
+    var dx = x-cx, dy = y-cy;
+    var dist = Math.sqrt(dx*dx+dy*dy);
+    if(dist < R0 || dist > R1+14) return -1;
+    var a = Math.atan2(dy,dx)*180/Math.PI;
+    if(a > 0) a -= 360;
+    if(a < START || a > START+SPAN) return -1;
+    var idx = Math.floor((a - START)/STEP);
+    return Math.max(0, Math.min(PRESETS.length-1, idx));
+  }
+
+  function choose(idx){ if(idx>=0){ state.current = PRESETS[idx].id; paintButton(); } }
+
+  btn.addEventListener('pointerdown', function(e){
+    e.preventDefault();
+    try{ btn.setPointerCapture(e.pointerId); }catch(_){}
+    open();
+  });
+  window.addEventListener('pointermove', function(e){
+    if(!state.open) return;
+    var idx = hit(e.clientX, e.clientY);
+    if(idx !== state.hover){ state.hover = idx; paintHover(); }
+  });
+  window.addEventListener('pointerup', function(e){
+    if(!state.open) return;
+    choose(hit(e.clientX, e.clientY));
+    close();
+  });
+  window.addEventListener('pointercancel', close);
+  window.addEventListener('keydown', function(e){ if(e.key==='Escape') close(); });
+
+  /* ?state=idle|open|workspace|full|readonly */
+  function applyUrlState(){
+    var m = /[?&]state=([^&]+)/.exec(location.search);
+    var s = m ? m[1] : 'idle';
+    var map = { workspace:1, full:2, readonly:0 };
+    if(s in map){ state.hover = map[s]; }
+    if(s !== 'idle'){
+      state.open = true;
+      body.classList.add('is-open');
+      paintHover();
+    }
+  }
+
+  buildFan();
+  paintButton();
+  place();
+  applyUrlState();
+  requestAnimationFrame(place);
+  window.addEventListener('resize', place);
+})();
+</script>
+</body>
+</html>

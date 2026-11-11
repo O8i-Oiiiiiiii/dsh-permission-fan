@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Permission fan",
+    "description": "Turns the composer permission switch into a press-and-drag radial picker: hold the round button, drag into a sector, release."
+  }
+}
